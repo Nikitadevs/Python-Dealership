@@ -24,12 +24,29 @@ def format_price(price):
     else:
         return f"${price:.2f}"
 
-def typing_effect(text, delay=0.05):
-    """Simulates a typing effect for the given text."""
+def typing_effect(text, delay=0.05, style="white"):
+    """Simulates a typing effect for the given text with Rich."""
     for char in text:
-        print(char, end='', flush=True)
+        console.print(char, end='', style=style, highlight=False)
         time.sleep(delay)
     print()
+
+def loading_animation(message, duration=2):
+    with Progress() as progress:
+        task = progress.add_task(f"[cyan]{message}", total=100)
+        for _ in range(100):
+            time.sleep(duration / 100)
+            progress.advance(task)
+
+def transition_effect():
+    layout = Layout(name="transition")
+    layout.update(Panel("[bold cyan]Transitioning...", style="bold magenta"))
+    with Live(layout, refresh_per_second=10, screen=True):
+        time.sleep(1.5)
+
+def highlight_selection(option_text):
+    console.print(f"[bold yellow]> {option_text} <", style="bold green")
+    time.sleep(0.5)
 
 class Car:
     def __init__(self, name, price, mileage, condition, age):
@@ -404,16 +421,16 @@ class CarDealershipSimulator:
     def main_menu(self):
         while True:
             self.clear_console()
-        
+
             header_panel = Panel(
-                "[bold cyan]Welcome to the Advanced Car Dealership Simulator!", 
-                title="Main Menu", 
-                subtitle="Select an option", 
-                width=70, 
+                "[bold cyan]Welcome to the Advanced Car Dealership Simulator!",
+                title="Main Menu",
+                subtitle="Select an option",
+                width=70,
                 padding=(1, 2)
             )
             console.print(header_panel)
-            
+
             options = {
                 "1": "View Dashboard",
                 "2": "View available cars",
@@ -435,34 +452,49 @@ class CarDealershipSimulator:
                 console.print(f"[yellow]{key}. {value}")
 
             console.print("\n")
-            
+
             choice = Prompt.ask("\nEnter your choice", choices=options.keys())
 
+            transition_effect()  # Add transition effect
+
             if choice == '1':
+                highlight_selection("View Dashboard")
                 self.interactive_dashboard()
             elif choice == '2':
+                highlight_selection("View available cars")
                 self.view_available_cars()
             elif choice == '3':
+                highlight_selection("Buy a car")
                 self.buy_car_menu()
             elif choice == '4':
+                highlight_selection("View your owned cars")
                 self.view_owned_cars()
             elif choice == '5':
+                highlight_selection("Sell a car")
                 self.sell_car()
             elif choice == '6':
+                highlight_selection("Add your own car")
                 self.add_user_car()
             elif choice == '7':
+                highlight_selection("Modify a car")
                 self.modify_car()
             elif choice == '8':
+                highlight_selection("Auction a car")
                 self.auction_car()
             elif choice == '9':
+                highlight_selection("Simulate next year")
                 self.simulate()
             elif choice == '10':
+                highlight_selection("Manage Employees")
                 self.manage_employees()
             elif choice == '11':
+                highlight_selection("Save game")
                 self.save_game()
             elif choice == '12':
+                highlight_selection("Load game")
                 self.load_game()
             elif choice == '13':
+                highlight_selection("View user guide")
                 self.view_user_guide()
             elif choice == '14':
                 console.print("[cyan]Exiting the game. Goodbye!")
@@ -649,12 +681,8 @@ class CarDealershipSimulator:
     def simulate(self):
         self.clear_console()
         console.print(Panel("[bold cyan]Simulating Car Prices for the next year...", title="Simulation"))
-        with Progress() as progress:
-            task = progress.add_task("[cyan]Simulating...", total=100)
-            for _ in range(100):
-                time.sleep(0.03)  # Simulate processing time
-                progress.advance(task)
-        
+        loading_animation("Simulating...", duration=3)  # Add loading animation
+
         self.current_year += 1
         self.random_event()
         maintenance_costs = self.calculate_maintenance_costs()
@@ -686,7 +714,28 @@ class CarDealershipSimulator:
 
         self.yearly_report(maintenance_costs)
         self.calculate_profit(maintenance_costs)
-        input("\nPress Enter to return to the main menu...")
+
+        # Add a loop to allow further actions after simulation
+        while True:
+            choice = Prompt.ask(
+                "[cyan]Simulation completed. What would you like to do next?\n"
+                "1: Buy a Car\n"
+                "2: Modify a Car\n"
+                "3: View Dashboard\n"
+                "4: Manage Employees\n"
+                "5: Main Menu",
+                choices=["1", "2", "3", "4", "5"]
+            )
+            if choice == "1":
+                self.buy_car_menu()
+            elif choice == "2":
+                self.modify_car()
+            elif choice == "3":
+                self.interactive_dashboard()
+            elif choice == "4":
+                self.manage_employees()
+            elif choice == "5":
+                break
 
     def calculate_maintenance_costs(self):
         total_cost = 0
