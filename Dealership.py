@@ -2,6 +2,12 @@ import random
 import string
 import json
 import os
+import sqlite3
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import plotly.express as px
+from faker import Faker
 from colorama import Fore, Style, init
 from rich.console import Console
 from rich.table import Table
@@ -11,7 +17,9 @@ from rich.layout import Layout
 from rich.live import Live
 from rich.progress import Progress
 from datetime import datetime
+from rich.text import Text
 import time
+
 
 init(autoreset=True)
 console = Console()
@@ -24,30 +32,22 @@ def format_price(price):
     else:
         return f"${price:.2f}"
 
-def typing_effect(text, delay=0.05, style="white"):
-    """Simulates a typing effect for the given text with Rich."""
+def typing_effect(text, delay=0.05):
+    """Simulates a typing effect for the given text."""
     for char in text:
-        console.print(char, end='', style=style, highlight=False)
+        print(char, end='', flush=True)
         time.sleep(delay)
     print()
 
-def loading_animation(message, duration=2):
+def loading_animation(text, duration=2):
+    """Displays a loading animation for a specified duration."""
     with Progress() as progress:
-        task = progress.add_task(f"[cyan]{message}", total=100)
+        task = progress.add_task(f"[cyan]{text}", total=100)
         for _ in range(100):
             time.sleep(duration / 100)
             progress.advance(task)
 
-def transition_effect():
-    layout = Layout(name="transition")
-    layout.update(Panel("[bold cyan]Transitioning...", style="bold magenta"))
-    with Live(layout, refresh_per_second=10, screen=True):
-        time.sleep(1.5)
-
-def highlight_selection(option_text):
-    console.print(f"[bold yellow]> {option_text} <", style="bold green")
-    time.sleep(0.5)
-
+# Car Class and its subclasses
 class Car:
     def __init__(self, name, price, mileage, condition, age):
         self.name = name
@@ -57,6 +57,7 @@ class Car:
         self.age = age
         self.owners = 0
         self.maintenance_history = []
+        self.customizations = []
 
     def depreciate(self):
         depreciation_rate = 0.1 if self.condition == "New" else 0.2
@@ -71,9 +72,13 @@ class Car:
         upgrades = {"performance": 10000, "luxury": 5000, "efficiency": 2000}
         if upgrade_type in upgrades:
             self.price += upgrades[upgrade_type]
+            self.customizations.append(upgrade_type)
             console.print(f"[green]{upgrade_type.capitalize()} upgrade applied to {self.name}. New value: {format_price(self.price)}")
         else:
             console.print("[red]Invalid upgrade type.")
+
+    def list_customizations(self):
+        return ', '.join(self.customizations) if self.customizations else "None"
 
 class LuxuryCar(Car):
     def luxury_tax(self):
@@ -87,6 +92,7 @@ class EconomyCar(Car):
     def fuel_efficiency_bonus(self):
         self.price += 2000
 
+# Inventory Management
 class Inventory:
     def __init__(self):
         self.locations = {"Showroom": [], "Warehouse": []}
@@ -119,8 +125,9 @@ class Inventory:
             if len(cars) < self.low_stock_threshold:
                 console.print(f"[red]Low stock in {location} - Consider ordering more cars.")
 
+# Customer Class with Trade-In Feature
 class Customer:
-    def __init__(self, name, budget, preference, negotiation_skill, loyalty=1):
+    def __init__(self, name, budget, preference, negotiation_skill, loyalty=1, trade_in_car=None):
         self.name = name
         self.budget = budget
         self.preference = preference
@@ -128,10 +135,13 @@ class Customer:
         self.loyalty = loyalty
         self.purchase_history = []
         self.reviews = []
+        self.trade_in_car = trade_in_car
 
     def negotiate_price(self, car_price):
         discount = random.randint(0, int(car_price * (self.negotiation_skill / 10)))
         final_price = car_price - discount
+        if self.trade_in_car:
+            final_price -= self.trade_in_car.price * 0.8  # Trade-in value is 80% of the car's current price
         return final_price
 
     def provide_feedback(self, satisfaction_level):
@@ -154,6 +164,7 @@ class Customer:
         else:
             console.print(f"[red]{self.name} could not afford {car.name}.")
 
+# Employee Class with Training Programs
 class Employee:
     def __init__(self, name, role, skill_level):
         self.name = name
@@ -170,6 +181,7 @@ class Employee:
         morale_status = "happy" if self.morale > 7 else "neutral" if self.morale > 4 else "unhappy"
         console.print(f"[yellow]{self.name} is now {morale_status} with morale level {self.morale}.")
 
+# AI Competitor with Advanced Strategies
 class AICompetitor:
     def __init__(self, name, money, strategy="Balanced"):
         self.name = name
@@ -222,6 +234,7 @@ class AICompetitor:
             self.money += sell_price
             console.print(f"[magenta]{self.name} sold {car.name} for {format_price(sell_price)}.")
 
+# Financial Manager with Detailed Management
 class FinancialManager:
     def __init__(self):
         self.profit_loss_statement = []
@@ -281,6 +294,29 @@ class FinancialManager:
         else:
             console.print(f"[red]Not enough money to invest in {crypto_name}.")
 
+    def generate_financial_report(self):
+        df = pd.DataFrame(self.profit_loss_statement)
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index('date', inplace=True)
+
+        plt.figure(figsize=(10, 6))
+        df['amount'].plot(kind='bar', color='teal')
+        plt.title('📈 Financial Report')
+        plt.xlabel('Date')
+        plt.ylabel('Amount')
+        plt.grid(True)
+        plt.show()
+
+    def generate_interactive_report(self):
+        df = pd.DataFrame(self.profit_loss_statement)
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index('date', inplace=True)
+
+        fig = px.line(df, x=df.index, y='amount', title='📊 Interactive Financial Report')
+        fig.update_traces(line=dict(color='royalblue', width=4))
+        fig.show()
+
+# Auction House for Buying and Selling Cars
 class AuctionHouse:
     def __init__(self):
         self.auctions = []
@@ -302,11 +338,12 @@ class AuctionHouse:
                     console.print(f"[magenta]{competitor.name} bids {format_price(bid)} for {car.name}.")
             if auction["highest_bidder"]:
                 auction["highest_bidder"].money -= auction["highest_bid"]
-                console.print(f"[green]{auction['highest_bidder'].name} wins the auction for {car.name} with a bid of {format_price(auction['highest_bid'])}.")
+                console.print(f"[green]{auction['highest_bidder'].name} wins the auction for {car.name} with a bid of {format_price(auction["highest_bid"])}.")
             else:
                 console.print(f"[red]No bids were placed for {car.name}.")
         self.auctions.clear()
 
+# Market Class with Seasonal and Trend Influences
 class Market:
     def __init__(self):
         self.market_trends = {"Luxury": 1.0, "Sports": 1.0, "Economy": 1.0}
@@ -326,6 +363,7 @@ class Market:
             car.price *= self.market_trends["Economy"]
         car.price = max(0, car.price)
 
+# Training Programs for Employees
 class TrainingProgram:
     def __init__(self, name, cost, skill_boost, morale_boost):
         self.name = name
@@ -342,6 +380,50 @@ class TrainingProgram:
         else:
             console.print(f"[red]Not enough money to enroll {employee.name} in {self.name}.")
 
+# Marketing Campaigns
+class MarketingCampaign:
+    def __init__(self, name, cost, effectiveness):
+        self.name = name
+        self.cost = cost
+        self.effectiveness = effectiveness
+
+    def apply_campaign(self, dealership):
+        if dealership.money >= self.cost:
+            dealership.money -= self.cost
+            dealership.reputation += self.effectiveness
+            console.print(f"[green]Marketing campaign {self.name} launched! Effectiveness: {self.effectiveness}")
+        else:
+            console.print("[red]Not enough money for this campaign.")
+
+# Service Department for Car Maintenance
+class ServiceDepartment:
+    def __init__(self):
+        self.revenue = 0
+
+    def service_car(self, car, customer):
+        service_cost = random.randint(1000, 5000)
+        customer.budget -= service_cost
+        car.maintain(datetime.now().year)
+        self.revenue += service_cost
+        console.print(f"[green]{customer.name} paid {format_price(service_cost)} for servicing {car.name}. Revenue added: {format_price(service_cost)}.")
+
+# Car Leasing System
+class LeaseContract:
+    def __init__(self, car, customer, lease_duration, monthly_payment):
+        self.car = car
+        self.customer = customer
+        self.lease_duration = lease_duration
+        self.monthly_payment = monthly_payment
+
+    def process_lease(self):
+        total_cost = self.lease_duration * self.monthly_payment
+        if total_cost <= self.customer.budget:
+            self.customer.budget -= total_cost
+            console.print(f"[green]{self.customer.name} leased {self.car.name} for {self.lease_duration} months at {format_price(self.monthly_payment)} per month. Total: {format_price(total_cost)}.")
+        else:
+            console.print(f"[red]{self.customer.name} couldn't afford the lease for {self.car.name}.")
+
+# Main Game Class
 class CarDealershipSimulator:
     def __init__(self):
         self.money = 1_000_000
@@ -350,6 +432,7 @@ class CarDealershipSimulator:
         self.price_history = {}
         self.income_history = []
         self.expense_history = []
+        self.reputation = 50  # Starting reputation
         self.ai_competitors = [
             AICompetitor("Competitor A", 800_000, strategy="Aggressive"),
             AICompetitor("Competitor B", 1_200_000, strategy="Balanced")
@@ -366,6 +449,7 @@ class CarDealershipSimulator:
         self.financial_manager = FinancialManager()
         self.auction_house = AuctionHouse()
         self.market = Market()
+        self.service_department = ServiceDepartment()
 
         self.luxury_cars = {
             "Rolls Royce": LuxuryCar("Rolls Royce", 500_000, 10, "New", 0),
@@ -373,14 +457,60 @@ class CarDealershipSimulator:
             "Bmw Alphina": LuxuryCar("Bmw Alphina", 150_000, 20, "New", 0),
             "Bentley": LuxuryCar("Bentley", 250_000, 8, "New", 0),
             "Aston Martin": LuxuryCar("Aston Martin", 180_000, 12, "New", 0),
-        }
+            "Mercedes-Benz S-Class": LuxuryCar("Mercedes-Benz S-Class", 110_000, 5, "New", 1),
+            "Jaguar XJ": LuxuryCar("Jaguar XJ", 100_000, 18, "Used", 3),
+            "Lexus LS": LuxuryCar("Lexus LS", 90_000, 22, "New", 2),
+            "Audi A8": LuxuryCar("Audi A8", 95_000, 20, "Used", 2),
+            "Maserati Quattroporte": LuxuryCar("Maserati Quattroporte", 120_000, 15, "New", 1),
+            "Tesla Model S Plaid": LuxuryCar("Tesla Model S Plaid", 130_000, 0, "New", 0),
+            "Cadillac CT6": LuxuryCar("Cadillac CT6", 75_000, 28, "Used", 4),
+            "Infiniti Q70": LuxuryCar("Infiniti Q70", 65_000, 25, "Used", 5),
+            "Bentley Mulsanne": LuxuryCar("Bentley Mulsanne", 300_000, 10, "New", 1),
+            "Rolls Royce Phantom": LuxuryCar("Rolls Royce Phantom", 450_000, 5, "New", 0),
+            "Lamborghini Urus": LuxuryCar("Lamborghini Urus", 200_000, 8, "New", 1),
+            "Porsche Panamera": LuxuryCar("Porsche Panamera", 150_000, 12, "New", 2),
+            "Mercedes-Maybach GLS": LuxuryCar("Mercedes-Maybach GLS", 170_000, 3, "New", 0),
+            "Land Rover Range Rover": LuxuryCar("Land Rover Range Rover", 160_000, 25, "Used", 4),
+            "BMW 7 Series": LuxuryCar("BMW 7 Series", 100_000, 20, "Used", 3),
+            "Genesis G90": LuxuryCar("Genesis G90", 85_000, 15, "New", 2),
+            "Lexus LX": LuxuryCar("Lexus LX", 90_000, 18, "Used", 4),
+            "Volvo XC90": LuxuryCar("Volvo XC90", 80_000, 22, "Used", 5),
+            "Jaguar F-Pace": LuxuryCar("Jaguar F-Pace", 75_000, 30, "Used", 6),
+            "Alfa Romeo Giulia Quadrifoglio": LuxuryCar("Alfa Romeo Giulia Quadrifoglio", 80_000, 35, "Used", 3),
+            }
+
         self.sports_cars = {
             "Mclaren": SportsCar("Mclaren", 400_000, 5, "New", 0),
             "Lamborghini": SportsCar("Lamborghini", 300_000, 8, "New", 0),
             "Porsche": SportsCar("Porsche", 150_000, 18, "New", 0),
             "Ferrari": SportsCar("Ferrari", 350_000, 6, "New", 0),
             "Bugatti": SportsCar("Bugatti", 700_000, 4, "New", 0),
+            "Chevrolet Corvette": SportsCar("Chevrolet Corvette", 85_000, 25, "Used", 2),
+            "Nissan GT-R": SportsCar("Nissan GT-R", 115_000, 12, "New", 1),
+            "Ford Mustang": SportsCar("Ford Mustang", 60_000, 30, "Used", 3),
+            "Dodge Viper": SportsCar("Dodge Viper", 95_000, 20, "Used", 5),
+            "BMW M3": SportsCar("BMW M3", 70_000, 22, "New", 2),
+            "Aston Martin Vantage": SportsCar("Aston Martin Vantage", 140_000, 10, "New", 1),
+            "Toyota Supra": SportsCar("Toyota Supra", 55_000, 35, "Used", 3),
+            "Subaru WRX STI": SportsCar("Subaru WRX STI", 50_000, 40, "Used", 4),
+            "Lamborghini Huracan": SportsCar("Lamborghini Huracan", 200_000, 8, "New", 0),
+            "Ferrari 488": SportsCar("Ferrari 488", 250_000, 10, "New", 1),
+            "Porsche 911": SportsCar("Porsche 911", 120_000, 20, "Used", 2),
+            "Audi R8": SportsCar("Audi R8", 160_000, 15, "New", 1),
+            "Mercedes-AMG GT": SportsCar("Mercedes-AMG GT", 140_000, 12, "New", 2),
+            "Chevrolet Camaro ZL1": SportsCar("Chevrolet Camaro ZL1", 65_000, 35, "Used", 3),
+            "Ford GT": SportsCar("Ford GT", 500_000, 4, "New", 0),
+            "Jaguar F-Type": SportsCar("Jaguar F-Type", 90_000, 18, "Used", 4),
+            "Maserati GranTurismo": SportsCar("Maserati GranTurismo", 120_000, 20, "Used", 3),
+            "Acura NSX": SportsCar("Acura NSX", 150_000, 10, "New", 2),
+            "Aston Martin DB11": SportsCar("Aston Martin DB11", 200_000, 5, "New", 0),
+            "BMW i8": SportsCar("BMW i8", 130_000, 22, "Used", 2),
+            "Lexus LC": SportsCar("Lexus LC", 100_000, 18, "New", 1),
+            "Alfa Romeo 4C": SportsCar("Alfa Romeo 4C", 70_000, 25, "Used", 3),
+            "McLaren 720S": SportsCar("McLaren 720S", 300_000, 7, "New", 0),
+            "Lamborghini Aventador": SportsCar("Lamborghini Aventador", 400_000, 4, "New", 0),
         }
+
         self.economy_cars = {
             "Alfa Romeo": EconomyCar("Alfa Romeo", 50_000, 25, "Used", 3),
             "Ford": EconomyCar("Ford", 40_000, 30, "Used", 5),
@@ -388,134 +518,247 @@ class CarDealershipSimulator:
             "Mini Cooper": EconomyCar("Mini Cooper", 60_000, 28, "Used", 6),
             "Honda": EconomyCar("Honda", 30_000, 40, "Used", 5),
             "Nissan": EconomyCar("Nissan", 35_000, 38, "Used", 4),
+            "Hyundai Elantra": EconomyCar("Hyundai Elantra", 20_000, 50, "Used", 8),
+            "Kia Soul": EconomyCar("Kia Soul", 25_000, 45, "Used", 6),
+            "Volkswagen Golf": EconomyCar("Volkswagen Golf", 25_000, 50, "Used", 7),
+            "Mazda 3": EconomyCar("Mazda 3", 22_000, 55, "Used", 6),
+            "Chevrolet Cruze": EconomyCar("Chevrolet Cruze", 18_000, 60, "Used", 7),
+            "Toyota Corolla": EconomyCar("Toyota Corolla", 20_000, 55, "Used", 5),
+            "Honda Civic": EconomyCar("Honda Civic", 19_000, 60, "Used", 6),
+            "Ford Focus": EconomyCar("Ford Focus", 21_000, 58, "Used", 6),
+            "Kia Rio": EconomyCar("Kia Rio", 15_000, 65, "Used", 7),
+            "Hyundai Accent": EconomyCar("Hyundai Accent", 14_000, 70, "Used", 8),
+            "Nissan Versa": EconomyCar("Nissan Versa", 13_000, 75, "Used", 8),
+            "Volkswagen Jetta": EconomyCar("Volkswagen Jetta", 18_000, 60, "Used", 7),
+            "Subaru Impreza": EconomyCar("Subaru Impreza", 17_000, 63, "Used", 7),
+            "Chevrolet Sonic": EconomyCar("Chevrolet Sonic", 12_000, 80, "Used", 9),
+            "Toyota Yaris": EconomyCar("Toyota Yaris", 16_000, 68, "Used", 7),
+            "Honda Fit": EconomyCar("Honda Fit", 17_000, 65, "Used", 6),
+            "Mazda 2": EconomyCar("Mazda 2", 14_000, 70, "Used", 7),
+            "Hyundai i20": EconomyCar("Hyundai i20", 13_000, 75, "Used", 8),
+            "Renault Clio": EconomyCar("Renault Clio", 15_000, 72, "Used", 7),
+            "Peugeot 208": EconomyCar("Peugeot 208", 16_000, 70, "Used", 6),
+            "Citroen C3": EconomyCar("Citroen C3", 14_000, 73, "Used", 7),
+            "Fiat 500": EconomyCar("Fiat 500", 13_000, 75, "Used", 8),
+            "Ford Fiesta": EconomyCar("Ford Fiesta", 14_000, 72, "Used", 7),
+            "Dacia Sandero": EconomyCar("Dacia Sandero", 11_000, 80, "Used", 8),
+            "Suzuki Swift": EconomyCar("Suzuki Swift", 13_000, 75, "Used", 7),
+            "Chevrolet Spark": EconomyCar("Chevrolet Spark", 10_000, 85, "Used", 9),
+            "Mitsubishi Mirage": EconomyCar("Mitsubishi Mirage", 12_000, 80, "Used", 8),
         }
+
 
     def clear_console(self):
         os.system('cls' if os.name == 'nt' else 'clear')
-
-    def interactive_dashboard(self):
-        """Display an interactive dashboard showing key metrics."""
-        dashboard_layout = Layout()
-        dashboard_layout.split_column(
-            Layout(name="header"),
-            Layout(name="body"),
-            Layout(name="footer")
-        )
-        dashboard_layout["header"].size = 3
-        dashboard_layout["footer"].size = 3
-        dashboard_layout["header"].update(Panel("Car Dealership Dashboard", style="bold cyan"))
-        dashboard_layout["footer"].update(Panel(f"Year: {self.current_year} | Money: {format_price(self.money)}"))
-
-        owned_cars_count = len(self.owned)
-        total_assets = self.money + sum(car.price for car in self.owned.values())
-        recent_transaction = self.income_history[-1] if self.income_history else "No recent transactions."
-
-        body_panel = Panel(f"Owned Cars: {owned_cars_count}\nTotal Assets: {format_price(total_assets)}\nRecent Transaction: {recent_transaction}",
-                           title="Dealership Status", subtitle="Current Overview", style="green")
-
-        dashboard_layout["body"].update(body_panel)
-
-        with Live(dashboard_layout, refresh_per_second=1):
-            input("\nPress Enter to return to the main menu...")
 
     def main_menu(self):
         while True:
             self.clear_console()
 
+            layout = Layout()
+            layout.split_column(
+                Layout(name="header", size=5),
+                Layout(name="body"),
+                Layout(name="footer", size=3)
+            )
+
             header_panel = Panel(
-                "[bold cyan]Welcome to the Advanced Car Dealership Simulator!",
+                Text("Welcome to the Advanced Car Dealership Simulator!", justify="center", style="bold cyan"),
                 title="Main Menu",
                 subtitle="Select an option",
+                style="bold cyan",
                 width=70,
                 padding=(1, 2)
             )
-            console.print(header_panel)
+            layout["header"].update(header_panel)
 
-            options = {
-                "1": "View Dashboard",
-                "2": "View available cars",
-                "3": "Buy a car",
-                "4": "View your owned cars",
-                "5": "Sell a car",
-                "6": "Add your own car",
-                "7": "Modify a car",
-                "8": "Auction a car",
-                "9": "Simulate next year",
-                "10": "Manage Employees",
-                "11": "Save game",
-                "12": "Load game",
-                "13": "View user guide",
-                "14": "Exit"
-            }
+            table = Table.grid(padding=1)
+            table.add_column(justify="center", style="bold yellow", width=3)
+            table.add_column(justify="left", style="white", width=45)
 
-            for key, value in options.items():
-                console.print(f"[yellow]{key}. {value}")
+            options = [
+                ("1", "View Available Cars"),
+                ("2", "Buy a Car"),
+                ("3", "View Your Owned Cars"),
+                ("4", "Sell a Car"),
+                ("5", "Add Your Own Car"),
+                ("6", "Modify a Car"),
+                ("7", "Auction a Car"),
+                ("8", "Simulate Next Year"),
+                ("9", "Manage Employees"),
+                ("10", "Manage Marketing"),
+                ("11", "Manage Finances"),
+                ("12", "Manage Service Department"),
+                ("13", "Generate Financial Report"),
+                ("14", "Generate Interactive Report"),
+                ("15", "Save Game"),
+                ("16", "Load Game"),
+                ("17", "View User Guide"),
+                ("18", "Exit")
+            ]
 
-            console.print("\n")
+            for key, value in options:
+                table.add_row(f"[yellow]{key}[/yellow]", f"[white]{value}[/white]")
 
-            choice = Prompt.ask("\nEnter your choice", choices=options.keys())
+            body_panel = Panel(table, style="green", padding=(1, 2))
+            layout["body"].update(body_panel)
 
-            transition_effect()  # Add transition effect
+            footer_text = Text(f"Year: {self.current_year} | Money: {format_price(self.money)} | Reputation: {self.reputation}", style="dim white", justify="center")
+            footer_panel = Panel(footer_text, style="bold cyan")
+            layout["footer"].update(footer_panel)
+
+            console.print(layout)
+
+            choice = Prompt.ask("\n[bold yellow]Enter your choice: [/bold yellow]", choices=[opt[0] for opt in options])
 
             if choice == '1':
-                highlight_selection("View Dashboard")
-                self.interactive_dashboard()
-            elif choice == '2':
-                highlight_selection("View available cars")
                 self.view_available_cars()
-            elif choice == '3':
-                highlight_selection("Buy a car")
+            elif choice == '2':
                 self.buy_car_menu()
-            elif choice == '4':
-                highlight_selection("View your owned cars")
+            elif choice == '3':
                 self.view_owned_cars()
-            elif choice == '5':
-                highlight_selection("Sell a car")
+            elif choice == '4':
                 self.sell_car()
-            elif choice == '6':
-                highlight_selection("Add your own car")
+            elif choice == '5':
                 self.add_user_car()
-            elif choice == '7':
-                highlight_selection("Modify a car")
+            elif choice == '6':
                 self.modify_car()
-            elif choice == '8':
-                highlight_selection("Auction a car")
+            elif choice == '7':
                 self.auction_car()
-            elif choice == '9':
-                highlight_selection("Simulate next year")
+            elif choice == '8':
                 self.simulate()
-            elif choice == '10':
-                highlight_selection("Manage Employees")
+            elif choice == '9':
                 self.manage_employees()
+            elif choice == '10':
+                self.manage_marketing()
             elif choice == '11':
-                highlight_selection("Save game")
-                self.save_game()
+                self.manage_finances()
             elif choice == '12':
-                highlight_selection("Load game")
-                self.load_game()
+                self.manage_service_department()
             elif choice == '13':
-                highlight_selection("View user guide")
-                self.view_user_guide()
+                self.financial_manager.generate_financial_report()
             elif choice == '14':
+                self.financial_manager.generate_interactive_report()  # Fixed the method call here
+            elif choice == '15':
+                self.save_game()
+            elif choice == '16':
+                self.load_game()
+            elif choice == '17':
+                self.view_user_guide()
+            elif choice == '18':
                 console.print("[cyan]Exiting the game. Goodbye!")
                 break
 
+    # Add additional methods for managing marketing, finances, and service department
+    def manage_marketing(self):
+        campaigns = [
+            MarketingCampaign("Social Media Blast", 50000, 10),
+            MarketingCampaign("TV Commercial", 150000, 30),
+            MarketingCampaign("Billboard Ads", 100000, 20)
+        ]
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold green]Manage Marketing Campaigns", title="Marketing"))
+            for i, campaign in enumerate(campaigns, start=1):
+                console.print(f"[yellow]{i}. {campaign.name} - Cost: {format_price(campaign.cost)} - Effectiveness: {campaign.effectiveness}")
+
+            choice = Prompt.ask("\nSelect a campaign to launch or type 'menu' to return", choices=[str(i) for i in range(1, len(campaigns) + 1)] + ['menu'])
+            if choice == 'menu':
+                break
+            else:
+                campaign = campaigns[int(choice) - 1]
+                campaign.apply_campaign(self)
+                break
+
+    def manage_finances(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold green]Manage Finances", title="Finances"))
+            console.print(f"[yellow]Cash Flow: {format_price(self.financial_manager.cash_flow)}")
+            console.print(f"[yellow]Outstanding Loans: {len(self.financial_manager.loans)}")
+            console.print(f"[yellow]Investments: {len(self.financial_manager.investments)}")
+            console.print(f"[yellow]Crypto Portfolio: {len(self.financial_manager.crypto_portfolio)}")
+            console.print(f"[yellow]Taxes Due: {format_price(self.financial_manager.taxes_due)}")
+            choice = Prompt.ask("\n1. Pay Taxes\n2. Take Loan\n3. Invest\n4. View Profit/Loss Statement\nmenu. Return to Menu", choices=["1", "2", "3", "4", "menu"])
+            if choice == '1':
+                self.financial_manager.pay_taxes()
+            elif choice == '2':
+                amount = int(Prompt.ask("Enter loan amount: $"))
+                interest_rate = float(Prompt.ask("Enter interest rate: %"))
+                term_years = int(Prompt.ask("Enter term in years: "))
+                self.financial_manager.take_loan(amount, interest_rate, term_years)
+            elif choice == '3':
+                invest_choice = Prompt.ask("1. Stock\n2. Cryptocurrency", choices=["1", "2"])
+                amount = int(Prompt.ask("Enter investment amount: $"))
+                if invest_choice == '1':
+                    stock_name = Prompt.ask("Enter stock name:")
+                    self.financial_manager.invest_in_stock(stock_name, amount)
+                else:
+                    crypto_name = Prompt.ask("Enter cryptocurrency name:")
+                    self.financial_manager.invest_in_crypto(crypto_name, amount)
+            elif choice == '4':
+                console.print(self.financial_manager.profit_loss_statement)
+            elif choice == 'menu':
+                break
+
+    def manage_service_department(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("🔧 [bold green]Manage Service Department[/bold green]", title="[bold white]Service Management[/bold white]"))
+
+            table = Table(show_header=True, header_style="bold magenta", title="Service Customers")
+            table.add_column("No.", style="dim", width=3)
+            table.add_column("Customer Name", style="white", width=20)
+            table.add_column("Budget", style="yellow", justify="right")
+
+            for i, customer in enumerate(self.customers, start=1):
+                table.add_row(str(i), customer.name, format_price(customer.budget))
+
+            console.print(table)
+            choice = Prompt.ask("\nSelect a customer for service or type 'menu' to return", choices=[str(i) for i in range(1, len(self.customers) + 1)] + ['menu'])
+            if choice == 'menu':
+                break
+            else:
+                customer = self.customers[int(choice) - 1]
+                car_name = Prompt.ask("Enter car name for service:")
+                car = next((car for car in self.owned.values() if car.name == car_name), None)
+                if car:
+                    self.service_department.service_car(car, customer)
+                else:
+                    console.print("[red]Car not found.")
+                break
+
+
+    # Methods for viewing, buying, and selling cars, and simulation remain the same...
+    # Additional features like storylines, achievements, and competitions can be integrated similarly.
+
     def view_available_cars(self):
-        self.clear_console()
-        console.print(Panel("[bold green]Available Cars:", title="Car Listings"))
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Name", style="dim")
-        table.add_column("Price")
-        table.add_column("Mileage")
-        table.add_column("Condition")
-        table.add_column("Age")
+        while True:
+            self.clear_console()
+            console.print(Panel("🚗 [bold green]Available Cars:[/bold green]", title="[bold white]Car Listings[/bold white]"))
 
-        for category in [self.luxury_cars, self.sports_cars, self.economy_cars]:
-            for car in category.values():
-                table.add_row(car.name, format_price(car.price), f"{car.mileage}k miles", car.condition, f"{car.age} years")
+            table = Table(show_header=True, header_style="bold magenta", title="Current Inventory")
+            table.add_column("Name", style="dim")
+            table.add_column("Price", justify="right")
+            table.add_column("Mileage", justify="right")
+            table.add_column("Condition", justify="center")
+            table.add_column("Age", justify="center")
 
-        console.print(table)
-        input("\nPress Enter to return to the main menu...")
+            for category in [self.luxury_cars, self.sports_cars, self.economy_cars]:
+                for car in category.values():
+                    table.add_row(
+                        car.name, 
+                        format_price(car.price), 
+                        f"{car.mileage}k miles", 
+                        car.condition, 
+                        f"{car.age} years"
+                    )
+
+            console.print(table)
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to refresh...").strip().lower()
+            if choice == 'menu':
+                break
+
 
     def buy_car_menu(self):
         while True:
@@ -537,205 +780,226 @@ class CarDealershipSimulator:
                 break
 
     def buy_car(self, category, car_list):
-        self.clear_console()
-        console.print(Panel(f"[bold green]{category} Cars:", title="Available Cars"))
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Name", style="dim")
-        table.add_column("Price")
-        table.add_column("Mileage")
-        table.add_column("Condition")
-        table.add_column("Age")
+        while True:
+            self.clear_console()
+            console.print(Panel(f"[bold green]{category} Cars:", title="Available Cars"))
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Name", style="dim")
+            table.add_column("Price")
+            table.add_column("Mileage")
+            table.add_column("Condition")
+            table.add_column("Age")
 
-        for car in car_list.values():
-            table.add_row(car.name, format_price(car.price), f"{car.mileage}k miles", car.condition, f"{car.age} years")
-
-        console.print(table)
-        carname = Prompt.ask("\nWhich car would you like to buy?", choices=[car.name for car in car_list.values()])
-
-        car = car_list.get(carname)
-        if car:
-            self.process_car_purchase(car)
-
-    def process_car_purchase(self, car):
-        console.print(f"[yellow]{car.name}: {format_price(car.price)} | Mileage: {car.mileage}k miles | Condition: {car.condition} | Age: {car.age} years")
-        buythiscar = Prompt.ask("Do you want to buy this car?", choices=["yes", "no"])
-        if buythiscar == "yes":
-            negotiation = random.randint(-5000, 5000)
-            final_price = max(0, car.price + negotiation)
-            if self.money - final_price >= 0:
-                if car.name in self.owned:
-                    console.print("[red]You already own this car.")
-                else:
-                    self.owned[car.name] = car
-                    self.money -= final_price
-                    car.owners += 1
-                    self.expense_history.append({"type": "purchase", "amount": final_price, "car": car.name, "year": self.current_year})
-                    console.print(f"[green]You bought a {car.name} for {format_price(final_price)}.")
-            else:
-                console.print("[red]You don't have enough money.")
-        else:
-            console.print("[cyan]Purchase cancelled.")
-        input("\nPress Enter to return to the previous menu...")
-
-    def view_owned_cars(self):
-        self.clear_console()
-        console.print(Panel("[bold green]Your Owned Cars:", title="Owned Cars"))
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Name", style="dim")
-        table.add_column("Value")
-        table.add_column("Age")
-        table.add_column("Mileage")
-        table.add_column("Condition")
-        table.add_column("Owners")
-        table.add_column("Maintenance History")
-
-        for carname, car in self.owned.items():
-            maintenance = ', '.join([f"{entry['year']}: {format_price(entry['cost'])}" for entry in car.maintenance_history])
-            table.add_row(carname, format_price(car.price), f"{car.age} years", f"{car.mileage}k miles", car.condition, str(car.owners), maintenance)
-
-        console.print(table)
-        input("\nPress Enter to return to the main menu...")
-
-    def sell_car(self):
-        self.clear_console()
-        console.print(Panel("[bold green]Sell a Car:", title="Sell Car"))
-        carname = Prompt.ask("\nWhich car would you like to sell?", choices=list(self.owned.keys()))
-        if carname in self.owned:
-            car = self.owned[carname]
-            sellprice = car.price
-            self.money += sellprice
-            del self.owned[carname]
-            self.income_history.append({"type": "sale", "amount": sellprice, "car": carname, "year": self.current_year})
-            console.print(f"[green]You sold your {carname} for {format_price(sellprice)}.")
-        else:
-            console.print("[red]You do not own this car.")
-        input("\nPress Enter to return to the main menu...")
-
-    def add_user_car(self):
-        self.clear_console()
-        console.print(Panel("[bold green]Add Your Own Car:", title="Add Car"))
-        carname = string.capwords(Prompt.ask("Enter the name of the car"))
-        try:
-            carprice = int(Prompt.ask("Enter the value of the car: $"))
-            carmileage = int(Prompt.ask("Enter the mileage of the car: "))
-            carcondition = Prompt.ask("Enter the condition of the car (New/Used)", choices=["New", "Used"])
-            carage = int(Prompt.ask("Enter the age of the car (years): "))
-        except ValueError:
-            console.print("[red]Invalid input. Please enter valid numbers.")
-            input("\nPress Enter to return to the main menu...")
-            return
-
-        if carcondition not in ["New", "Used"]:
-            console.print("[red]Invalid condition. Please enter 'New' or 'Used'.")
-            input("\nPress Enter to return to the main menu...")
-            return
-
-        if carprice >= 200_000:
-            car = LuxuryCar(carname, carprice, carmileage, carcondition, carage)
-            self.luxury_cars[carname] = car
-        elif carprice >= 100_000:
-            car = SportsCar(carname, carprice, carmileage, carcondition, carage)
-            self.sports_cars[carname] = car
-        else:
-            car = EconomyCar(carname, carprice, carmileage, carcondition, carage)
-            self.economy_cars[carname] = car
-
-        console.print(f"[green]Your car {carname} has been added successfully.")
-        input("\nPress Enter to return to the main menu...")
-
-    def modify_car(self):
-        self.clear_console()
-        console.print(Panel("[bold green]Modify a Car:", title="Modify Car"))
-        carname = Prompt.ask("\nWhich car would you like to modify?", choices=list(self.owned.keys()))
-        if carname in self.owned:
-            car = self.owned[carname]
-            console.print(f"[yellow]{carname}: 1 car | Value: {format_price(car.price)}")
-            options = {"1": "Performance Upgrade (+$10,000)", "2": "Luxury Upgrade (+$5,000)", "3": "Efficiency Upgrade (+$2,000)"}
-            for key, value in options.items():
-                console.print(f"[yellow]{key}. {value}")
-
-            upgrade_choice = Prompt.ask("Choose an upgrade (1-3)", choices=options.keys())
-            if upgrade_choice == '1':
-                car.modify("performance")
-            elif upgrade_choice == '2':
-                car.modify("luxury")
-            elif upgrade_choice == '3':
-                car.modify("efficiency")
-        else:
-            console.print("[red]You do not own this car.")
-        input("\nPress Enter to return to the main menu...")
-
-    def auction_car(self):
-        self.clear_console()
-        console.print(Panel("[bold green]Auction a Car:", title="Auction Car"))
-        carname = Prompt.ask("\nWhich car would you like to auction?", choices=list(self.owned.keys()))
-        if carname in self.owned:
-            car = self.owned[carname]
-            self.auction_house.list_car(car)
-            self.auction_house.conduct_auction()
-            input("\nPress Enter to return to the main menu...")  # Ensure this line is here
-        else:
-            console.print("[red]You do not own this car.")
-            input("\nPress Enter to return to the main menu...")
-
-    def simulate(self):
-        self.clear_console()
-        console.print(Panel("[bold cyan]Simulating Car Prices for the next year...", title="Simulation"))
-        loading_animation("Simulating...", duration=3)  # Add loading animation
-
-        self.current_year += 1
-        self.random_event()
-        maintenance_costs = self.calculate_maintenance_costs()
-        for category in [self.luxury_cars, self.sports_cars, self.economy_cars]:
-            for car in category.values():
-                car.depreciate()
-                self.price_history.setdefault(car.name, []).append(car.price)
-                car.age += 1  # Increase the age of each car by 1 year
-        console.print("[bold green]New Car Prices:", title="Updated Prices")
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Name", style="dim")
-        table.add_column("Price")
-        table.add_column("Mileage")
-        table.add_column("Condition")
-        table.add_column("Age")
-
-        for category in [self.luxury_cars, self.sports_cars, self.economy_cars]:
-            for car in category.values():
+            for car in car_list.values():
                 table.add_row(car.name, format_price(car.price), f"{car.mileage}k miles", car.condition, f"{car.age} years")
 
-        console.print(table)
+            console.print(table)
+            carname = Prompt.ask("\nWhich car would you like to buy?", choices=[car.name for car in car_list.values()])
 
-        console.print(Panel("[cyan]Your owned cars:", title="Owned Cars"))
-        for carname, car in self.owned.items():
-            console.print(f"[yellow]{carname}: 1 car")
-
-        for competitor in self.ai_competitors:
-            self.ai_turn(competitor)
-
-        self.yearly_report(maintenance_costs)
-        self.calculate_profit(maintenance_costs)
-
-        # Add a loop to allow further actions after simulation
-        while True:
-            choice = Prompt.ask(
-                "[cyan]Simulation completed. What would you like to do next?\n"
-                "1: Buy a Car\n"
-                "2: Modify a Car\n"
-                "3: View Dashboard\n"
-                "4: Manage Employees\n"
-                "5: Main Menu",
-                choices=["1", "2", "3", "4", "5"]
-            )
-            if choice == "1":
-                self.buy_car_menu()
-            elif choice == "2":
-                self.modify_car()
-            elif choice == "3":
-                self.interactive_dashboard()
-            elif choice == "4":
-                self.manage_employees()
-            elif choice == "5":
+            if carname.lower() == 'menu':
                 break
+
+            car = car_list.get(carname)
+            if car:
+                self.process_car_purchase(car)
+                break
+
+    def process_car_purchase(self, car):
+        while True:
+            console.print(f"[yellow]{car.name}: {format_price(car.price)} | Mileage: {car.mileage}k miles | Condition: {car.condition} | Age: {car.age} years")
+            buythiscar = Prompt.ask("Do you want to buy this car?", choices=["yes", "no"])
+            if buythiscar == "yes":
+                negotiation = random.randint(-5000, 5000)
+                final_price = max(0, car.price + negotiation)
+                if self.money - final_price >= 0:
+                    if car.name in self.owned:
+                        console.print("[red]You already own this car.")
+                    else:
+                        self.owned[car.name] = car
+                        self.money -= final_price
+                        car.owners += 1
+                        self.expense_history.append({"type": "purchase", "amount": final_price, "car": car.name, "year": self.current_year})
+                        console.print(f"[green]You bought a {car.name} for {format_price(final_price)}.")
+                else:
+                    console.print("[red]You don't have enough money.")
+            else:
+                console.print("[cyan]Purchase cancelled.")
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+            if choice == 'menu':
+                break
+
+    def view_owned_cars(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold green]Your Owned Cars:", title="Owned Cars"))
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Name", style="dim")
+            table.add_column("Value")
+            table.add_column("Age")
+            table.add_column("Mileage")
+            table.add_column("Condition")
+            table.add_column("Owners")
+            table.add_column("Maintenance History")
+
+            for carname, car in self.owned.items():
+                maintenance = ', '.join([f"{entry['year']}: {format_price(entry['cost'])}" for entry in car.maintenance_history])
+                table.add_row(carname, format_price(car.price), f"{car.age} years", f"{car.mileage}k miles", car.condition, str(car.owners), maintenance)
+
+            console.print(table)
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to refresh...").strip().lower()
+            if choice == 'menu':
+                break
+
+    def sell_car(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold green]Sell a Car:", title="Sell Car"))
+            carname = Prompt.ask("\nWhich car would you like to sell?", choices=list(self.owned.keys()))
+            if carname.lower() == 'menu':
+                break
+            if carname in self.owned:
+                car = self.owned[carname]
+                sellprice = car.price
+                self.money += sellprice
+                del self.owned[carname]
+                self.income_history.append({"type": "sale", "amount": sellprice, "car": carname, "year": self.current_year})
+                console.print(f"[green]You sold your {carname} for {format_price(sellprice)}.")
+            else:
+                console.print("[red]You do not own this car.")
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+            if choice == 'menu':
+                break
+
+    def add_user_car(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold green]Add Your Own Car:", title="Add Car"))
+            carname = string.capwords(Prompt.ask("Enter the name of the car"))
+            if carname.lower() == 'menu':
+                break
+            try:
+                carprice = int(Prompt.ask("Enter the value of the car: $"))
+                carmileage = int(Prompt.ask("Enter the mileage of the car: "))
+                carcondition = Prompt.ask("Enter the condition of the car (New/Used)", choices=["New", "Used"])
+                carage = int(Prompt.ask("Enter the age of the car (years): "))
+            except ValueError:
+                console.print("[red]Invalid input. Please enter valid numbers.")
+                input("\nPress Enter to return to the main menu...")
+                continue
+
+            if carcondition not in ["New", "Used"]:
+                console.print("[red]Invalid condition. Please enter 'New' or 'Used'.")
+                input("\nPress Enter to return to the main menu...")
+                continue
+
+            if carprice >= 200_000:
+                car = LuxuryCar(carname, carprice, carmileage, carcondition, carage)
+                self.luxury_cars[carname] = car
+            elif carprice >= 100_000:
+                car = SportsCar(carname, carprice, carmileage, carcondition, carage)
+                self.sports_cars[carname] = car
+            else:
+                car = EconomyCar(carname, carprice, carmileage, carcondition, carage)
+                self.economy_cars[carname] = car
+
+            console.print(f"[green]Your car {carname} has been added successfully.")
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+            if choice == 'menu':
+                break
+
+    def modify_car(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold green]Modify a Car:", title="Modify Car"))
+            carname = Prompt.ask("\nWhich car would you like to modify?", choices=list(self.owned.keys()))
+            if carname.lower() == 'menu':
+                break
+            if carname in self.owned:
+                car = self.owned[carname]
+                console.print(f"[yellow]{carname}: 1 car | Value: {format_price(car.price)}")
+                options = {"1": "Performance Upgrade (+$10,000)", "2": "Luxury Upgrade (+$5,000)", "3": "Efficiency Upgrade (+$2,000)"}
+                for key, value in options.items():
+                    console.print(f"[yellow]{key}. {value}")
+
+                upgrade_choice = Prompt.ask("Choose an upgrade (1-3)", choices=options.keys())
+                if upgrade_choice == '1':
+                    car.modify("performance")
+                elif upgrade_choice == '2':
+                    car.modify("luxury")
+                elif upgrade_choice == '3':
+                    car.modify("efficiency")
+            else:
+                console.print("[red]You do not own this car.")
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+            if choice == 'menu':
+                break
+
+    def auction_car(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold green]Auction a Car:", title="Auction Car"))
+            carname = Prompt.ask("\nWhich car would you like to auction?", choices=list(self.owned.keys()))
+            if carname.lower() == 'menu':
+                break
+            if carname in self.owned:
+                car = self.owned[carname]
+                self.auction_house.list_car(car)
+                self.auction_house.conduct_auction()
+            else:
+                console.print("[red]You do not own this car.")
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+            if choice == 'menu':
+                break
+
+    def simulate(self):
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold cyan]Simulating Car Prices for the next year...", title="Simulation"))
+            with Progress() as progress:
+                task = progress.add_task("[cyan]Simulating...", total=100)
+                for _ in range(100):
+                    time.sleep(0.03)  # Simulate processing time
+                    progress.advance(task)
+            
+            self.current_year += 1
+            self.random_event()
+            maintenance_costs = self.calculate_maintenance_costs()
+            for category in [self.luxury_cars, self.sports_cars, self.economy_cars]:
+                for car in category.values():
+                    car.depreciate()
+                    self.price_history.setdefault(car.name, []).append(car.price)
+                    car.age += 1  # Increase the age of each car by 1 year
+
+            # Corrected this line: wrapping the text with Panel
+            console.print(Panel("[bold green]New Car Prices:", title="Updated Prices"))
+
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Name", style="dim")
+            table.add_column("Price")
+            table.add_column("Mileage")
+            table.add_column("Condition")
+            table.add_column("Age")
+
+            for category in [self.luxury_cars, self.sports_cars, self.economy_cars]:
+                for car in category.values():
+                    table.add_row(car.name, format_price(car.price), f"{car.mileage}k miles", car.condition, f"{car.age} years")
+
+            console.print(table)
+
+            console.print(Panel("[cyan]Your owned cars:", title="Owned Cars"))
+            for carname, car in self.owned.items():
+                console.print(f"[yellow]{carname}: 1 car")
+
+            for competitor in self.ai_competitors:
+                self.ai_turn(competitor)
+
+            self.yearly_report(maintenance_costs)
+            self.calculate_profit(maintenance_costs)
+
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+            if choice == 'menu':
+                break
+
 
     def calculate_maintenance_costs(self):
         total_cost = 0
@@ -780,81 +1044,118 @@ class CarDealershipSimulator:
                 competitor.sell_car(car)
 
     def manage_employees(self):
-        self.clear_console()
-        console.print(Panel("[bold green]Manage Employees:", title="Employee Management"))
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("No.", style="dim")
-        table.add_column("Name")
-        table.add_column("Role")
-        table.add_column("Skill Level")
+        while True:
+            self.clear_console()
+            console.print(Panel("👥 [bold green]Manage Employees[/bold green]", title="[bold white]Employee Management[/bold white]"))
 
-        for i, employee in enumerate(self.employees, start=1):
-            table.add_row(str(i), employee.name, employee.role, str(employee.skill_level))
+            table = Table(show_header=True, header_style="bold magenta", title="Employee Roster")
+            table.add_column("No.", style="dim", width=3)
+            table.add_column("Name", style="white", width=15)
+            table.add_column("Role", style="yellow", width=15)
+            table.add_column("Skill Level", style="cyan", justify="right")
 
-        console.print(table)
-        choice = Prompt.ask("Select an employee to improve their skills (or type 'back' to return)")
-        if choice.lower() == 'back':
-            return
-        try:
-            choice = int(choice) - 1
-            if 0 <= choice < len(self.employees):
-                self.employees[choice].improve_skill()
-            else:
-                console.print("[red]Invalid selection.")
-        except ValueError:
-            console.print("[red]Please enter a valid number.")
-        input("\nPress Enter to return to the previous menu...")
+            for i, employee in enumerate(self.employees, start=1):
+                table.add_row(str(i), employee.name, employee.role, str(employee.skill_level))
+
+            console.print(table)
+            choice = Prompt.ask("Select an employee to improve their skills (or type 'menu' to return)").strip().lower()
+            if choice == 'menu':
+                break
+            try:
+                choice = int(choice) - 1
+                if 0 <= choice < len(self.employees):
+                    self.employees[choice].improve_skill()
+                else:
+                    console.print("[red]Invalid selection.")
+            except ValueError:
+                console.print("[red]Please enter a valid number.")
+            input("\nPress Enter to return to the previous menu...")
 
     def yearly_report(self, maintenance_costs):
-        console.print(Panel("[bold cyan]Yearly Report:", title="Yearly Summary"))
-        console.print(f"[yellow]Year: {self.current_year}")
-        console.print(f"[yellow]Money: {format_price(self.money)}")
-        console.print(f"[yellow]Owned Cars: {list(self.owned.keys())}")
-        console.print("[green]\nPrice History:")
-        for model, history in self.price_history.items():
-            console.print(f"[yellow]{model}: {', '.join(map(format_price, history))}")
-        console.print("[green]\nIncome History:")
-        for entry in self.income_history:
-            console.print(f"[yellow]{entry}")
-        console.print("[green]\nExpense History:")
-        for entry in self.expense_history:
-            console.print(f"[yellow]{entry}")
-        console.print(f"[green]\nTotal Maintenance Costs: {format_price(maintenance_costs)}")
+        while True:
+            self.clear_console()
+            console.print(Panel("[bold cyan]Yearly Report:", title="Yearly Summary"))
+            console.print(f"[yellow]Year: {self.current_year}")
+            console.print(f"[yellow]Money: {format_price(self.money)}")
+            console.print(f"[yellow]Owned Cars: {list(self.owned.keys())}")
+            console.print("[green]\nPrice History:")
+            for model, history in self.price_history.items():
+                console.print(f"[yellow]{model}: {', '.join(map(format_price, history))}")
+            console.print("[green]\nIncome History:")
+            for entry in self.income_history:
+                console.print(f"[yellow]{entry}")
+            console.print("[green]\nExpense History:")
+            for entry in self.expense_history:
+                console.print(f"[yellow]{entry}")
+            console.print(f"[green]\nTotal Maintenance Costs: {format_price(maintenance_costs)}")
+            choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+            if choice == 'menu':
+                break
 
     def save_game(self):
-        slot = Prompt.ask("Enter save slot number (1-3)", choices=["1", "2", "3"])
-        game_state = {
-            "money": self.money,
-            "owned": {name: car.__dict__ for name, car in self.owned.items()},
-            "current_year": self.current_year,
-            "price_history": self.price_history,
-            "income_history": self.income_history,
-            "expense_history": self.expense_history,
-            "ai_competitors": {comp.name: comp.__dict__ for comp in self.ai_competitors},
-            "employees": [emp.__dict__ for emp in self.employees]
-        }
-        with open(f"car_dealership_save_{slot}.json", "w") as save_file:
-            json.dump(game_state, save_file)
-        console.print("[green]Game saved successfully.")
-        input("\nPress Enter to return to the main menu...")
+        while True:
+            slot = Prompt.ask("Enter save slot number (1-3) or type 'menu' to return").strip().lower()
+            if slot == 'menu':
+                break
+            if slot in ["1", "2", "3"]:
+                conn = sqlite3.connect(f'car_dealership_save_{slot}.db')
+                c = conn.cursor()
+                c.execute('''CREATE TABLE IF NOT EXISTS game_state 
+                             (id INTEGER PRIMARY KEY, money INTEGER, current_year INTEGER, owned TEXT, 
+                             price_history TEXT, income_history TEXT, expense_history TEXT, ai_competitors TEXT, employees TEXT)''')
+
+                game_state = {
+                    "money": self.money,
+                    "owned": json.dumps({name: car.__dict__ for name, car in self.owned.items()}),
+                    "current_year": self.current_year,
+                    "price_history": json.dumps(self.price_history),
+                    "income_history": json.dumps(self.income_history),
+                    "expense_history": json.dumps(self.expense_history),
+                    "ai_competitors": json.dumps({comp.name: comp.__dict__ for comp in self.ai_competitors}),
+                    "employees": json.dumps([emp.__dict__ for emp in self.employees])
+                }
+
+                c.execute("INSERT INTO game_state (money, current_year, owned, price_history, income_history, expense_history, ai_competitors, employees) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
+                          (game_state['money'], game_state['current_year'], game_state['owned'], game_state['price_history'], game_state['income_history'], 
+                           game_state['expense_history'], game_state['ai_competitors'], game_state['employees']))
+                conn.commit()
+                conn.close()
+                console.print("[green]Game saved successfully.")
+                choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+                if choice == 'menu':
+                    break
+            else:
+                console.print("[red]Invalid slot number.")
 
     def load_game(self):
-        slot = Prompt.ask("Enter load slot number (1-3)", choices=["1", "2", "3"])
-        if os.path.exists(f"car_dealership_save_{slot}.json"):
-            with open(f"car_dealership_save_{slot}.json", "r") as save_file:
-                game_state = json.load(save_file)
-            self.money = game_state["money"]
-            self.current_year = game_state["current_year"]
-            self.price_history = game_state["price_history"]
-            self.income_history = game_state["income_history"]
-            self.expense_history = game_state["expense_history"]
-            self.owned = {name: Car(**car) for name, car in game_state["owned"].items()}
-            self.ai_competitors = [AICompetitor(name, data['money']) for name, data in game_state["ai_competitors"].items()]
-            self.employees = [Employee(**emp) for emp in game_state["employees"]]
-            console.print("[green]Game loaded successfully.")
-        else:
-            console.print("[red]No saved game found in this slot. Starting a new game.")
-        input("\nPress Enter to return to the main menu...")
+        while True:
+            slot = Prompt.ask("Enter load slot number (1-3) or type 'menu' to return").strip().lower()
+            if slot == 'menu':
+                break
+            if slot in ["1", "2", "3"]:
+                conn = sqlite3.connect(f'car_dealership_save_{slot}.db')
+                c = conn.cursor()
+                c.execute("SELECT * FROM game_state ORDER BY id DESC LIMIT 1")
+                row = c.fetchone()
+                conn.close()
+
+                if row:
+                    self.money = row[1]
+                    self.current_year = row[2]
+                    self.owned = {name: Car(**car) for name, car in json.loads(row[3]).items()}
+                    self.price_history = json.loads(row[4])
+                    self.income_history = json.loads(row[5])
+                    self.expense_history = json.loads(row[6])
+                    self.ai_competitors = [AICompetitor(name, data['money']) for name, data in json.loads(row[7]).items()]
+                    self.employees = [Employee(**emp) for emp in json.loads(row[8])]
+                    console.print("[green]Game loaded successfully.")
+                else:
+                    console.print("[red]No saved game found in this slot. Starting a new game.")
+                choice = Prompt.ask("\nType 'menu' to return to the main menu or press Enter to continue...").strip().lower()
+                if choice == 'menu':
+                    break
+            else:
+                console.print("[red]Invalid slot number.")
 
     def view_user_guide(self):
         while True:
@@ -870,9 +1171,12 @@ class CarDealershipSimulator:
             menu.add_row("[bold yellow]7[/bold yellow]. Auction a car: Puts a car up for auction, allowing AI competitors to bid against you.")
             menu.add_row("[bold yellow]8[/bold yellow]. Simulate next year: Advances the game by one year, applying random events and updating car prices.")
             menu.add_row("[bold yellow]9[/bold yellow]. Manage Employees: Train and manage your employees to improve their skills and boost dealership performance.")
-            menu.add_row("[bold yellow]10[/bold yellow]. Save game: Saves your current game state in one of three slots.")
-            menu.add_row("[bold yellow]11[/bold yellow]. Load game: Loads a previously saved game from one of three slots.")
-            menu.add_row("[bold yellow]12[/bold yellow]. Exit: Exits the game.")
+            menu.add_row("[bold yellow]10[/bold yellow]. Manage Marketing: Launch marketing campaigns to boost your dealership's reputation and attract customers.")
+            menu.add_row("[bold yellow]11[/bold yellow]. Manage Finances: Handle your dealership's finances, including loans, investments, and tax payments.")
+            menu.add_row("[bold yellow]12[/bold yellow]. Manage Service Department: Offer car maintenance services to customers and generate additional revenue.")
+            menu.add_row("[bold yellow]13[/bold yellow]. Save game: Saves your current game state in one of three slots.")
+            menu.add_row("[bold yellow]14[/bold yellow]. Load game: Loads a previously saved game from one of three slots.")
+            menu.add_row("[bold yellow]15[/bold yellow]. Exit: Exits the game.")
             menu.add_row("[bold yellow]0[/bold yellow]. Return to Main Menu")
 
             console.print(menu)
