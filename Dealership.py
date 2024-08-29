@@ -700,10 +700,6 @@ class CarDealershipSimulator:
                     console.print("[red]Car not found.")
                 break
 
-
-    # Methods for viewing, buying, and selling cars, and simulation remain the same...
-    # Additional features like storylines, achievements, and competitions can be integrated similarly.
-
     def view_available_cars(self):
         while True:
             self.clear_console()
