@@ -294,28 +294,6 @@ class FinancialManager:
         else:
             console.print(f"[red]Not enough money to invest in {crypto_name}.")
 
-    def generate_financial_report(self):
-        df = pd.DataFrame(self.profit_loss_statement)
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index('date', inplace=True)
-
-        plt.figure(figsize=(10, 6))
-        df['amount'].plot(kind='bar', color='teal')
-        plt.title('📈 Financial Report')
-        plt.xlabel('Date')
-        plt.ylabel('Amount')
-        plt.grid(True)
-        plt.show()
-
-    def generate_interactive_report(self):
-        df = pd.DataFrame(self.profit_loss_statement)
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index('date', inplace=True)
-
-        fig = px.line(df, x=df.index, y='amount', title='📊 Interactive Financial Report')
-        fig.update_traces(line=dict(color='royalblue', width=4))
-        fig.show()
-
 # Auction House for Buying and Selling Cars
 class AuctionHouse:
     def __init__(self):
@@ -589,12 +567,10 @@ class CarDealershipSimulator:
                 ("10", "Manage Marketing"),
                 ("11", "Manage Finances"),
                 ("12", "Manage Service Department"),
-                ("13", "Generate Financial Report"),
-                ("14", "Generate Interactive Report"),
-                ("15", "Save Game"),
-                ("16", "Load Game"),
-                ("17", "View User Guide"),
-                ("18", "Exit")
+                ("13", "Save Game"),
+                ("14", "Load Game"),
+                ("15", "View User Guide"),
+                ("16", "Exit")
             ]
 
             for key, value in options:
@@ -636,16 +612,12 @@ class CarDealershipSimulator:
             elif choice == '12':
                 self.manage_service_department()
             elif choice == '13':
-                self.financial_manager.generate_financial_report()
-            elif choice == '14':
-                self.financial_manager.generate_interactive_report()  # Fixed the method call here
-            elif choice == '15':
                 self.save_game()
-            elif choice == '16':
+            elif choice == '14':
                 self.load_game()
-            elif choice == '17':
+            elif choice == '15':
                 self.view_user_guide()
-            elif choice == '18':
+            elif choice == '16':
                 console.print("[cyan]Exiting the game. Goodbye!")
                 break
 
