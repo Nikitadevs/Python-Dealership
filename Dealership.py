@@ -736,7 +736,7 @@ class CarDealershipSimulator:
             for key, value in categories.items():
                 console.print(f"[yellow]{key}. {value}")
 
-            choice = Prompt.ask("\nEnter your choice", choices=categories.keys())
+            choice = Prompt.ask("\nEnter your choice", choices=categories.keys()) # type: ignore
 
             if choice == '1':
                 self.buy_car("Luxury", self.luxury_cars)
@@ -889,7 +889,7 @@ class CarDealershipSimulator:
                 for key, value in options.items():
                     console.print(f"[yellow]{key}. {value}")
 
-                upgrade_choice = Prompt.ask("Choose an upgrade (1-3)", choices=options.keys())
+                upgrade_choice = Prompt.ask("Choose an upgrade (1-3)", choices=options.keys()) # type: ignore
                 if upgrade_choice == '1':
                     car.modify("performance")
                 elif upgrade_choice == '2':
