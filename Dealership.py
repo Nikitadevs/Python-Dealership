@@ -3,18 +3,12 @@ import string
 import json
 import os
 import sqlite3
-import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
-import plotly.express as px
-from faker import Faker
-from colorama import Fore, Style, init
+from colorama import init
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
 from rich.panel import Panel
 from rich.layout import Layout
-from rich.live import Live
 from rich.progress import Progress
 from datetime import datetime
 from rich.text import Text
