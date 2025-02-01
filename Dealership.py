@@ -16,6 +16,12 @@ from rich.progress import Progress
 from rich.text import Text
 from rich import box
 
+# Added missing imports:
+import os
+import random
+import time
+import string
+
 # Initialize colorama and console
 init(autoreset=True)
 console = Console()
@@ -127,11 +133,12 @@ class Inventory:
         if from_location in self.locations and to_location in self.locations:
             car = next((c for c in self.locations[from_location] if c.name == car_name), None)
             if car:
-                self.locations[from_location].remove(car)
+                # Move the car and remove from original location
                 self.locations[to_location].append(car)
-                console.print(f"[cyan]Moved {car.name} from {from_location} to {to_location}.")
+                self.locations[from_location].remove(car)
+                console.print(f"[green]Moved {car.name} from {from_location} to {to_location}.")
             else:
-                console.print("[red]Car not found in the specified location!")
+                console.print(f"[red]{car_name} not found in {from_location}.")
         else:
             console.print("[red]Invalid location!")
 
@@ -139,9 +146,10 @@ class Inventory:
         for location, cars in self.locations.items():
             console.print(f"[bold yellow]{location}:")
             for car in cars:
-                console.print(f" - {car.name} ({format_price(car.price)})")
+                # Display each car
+                console.print(f" - {car.name}")
             if len(cars) < self.low_stock_threshold:
-                console.print(f"[red]Low stock in {location} - Consider ordering more cars.")
+                console.print(f"[red]Low stock alert at {location}!")
 
 # Customer Class with Trade-In Feature
 class Customer:
@@ -599,6 +607,7 @@ class CarDealershipSimulator:
             console.print(layout)
             choice = Prompt.ask("\n[bold yellow]Enter your choice: [/bold yellow]", choices=[opt[0] for opt in options])
             if choice == '1':
+                # Call view available cars
                 self.view_available_cars()
             elif choice == '2':
                 self.buy_car_menu()
@@ -1198,7 +1207,5 @@ class CarDealershipSimulator:
             except ValueError:
                 console.print("[red]Invalid input. Please enter '0' to return to the main menu.")
 
-# Instantiate and run the game
-if __name__ == "__main__":
-    game = CarDealershipSimulator()
-    game.main_menu()
+# Export an instance for the backend:
+simulator = CarDealershipSimulator()
