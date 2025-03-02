@@ -5,7 +5,6 @@ import os
 import sqlite3
 from datetime import datetime
 import time
-
 from colorama import init
 from rich.console import Console
 from rich.table import Table
@@ -15,12 +14,6 @@ from rich.layout import Layout
 from rich.progress import Progress
 from rich.text import Text
 from rich import box
-
-# Added missing imports:
-import os
-import random
-import time
-import string
 
 # Initialize colorama and console
 init(autoreset=True)
@@ -53,7 +46,7 @@ def loading_animation(text, duration=2):
 
 # Base Car Class
 class Car:
-    def __init__(self, name, price, mileage, condition, age):
+    def __init__(self, name, price, mileage, condition, age, **kwargs):
         self.name = name
         self.price = price
         self.base_price = price  # Original price for calculations
@@ -64,6 +57,8 @@ class Car:
         self.maintenance_history = []
         self.customizations = []
         self.sold = False
+        # Accept extra keys from saved game state
+        self.__dict__.update(kwargs)
 
     def depreciate(self):
         # Depreciation logic based on car condition and age
@@ -196,11 +191,12 @@ class Customer:
 
 # Employee Class with Training Programs
 class Employee:
-    def __init__(self, name, role, skill_level):
+    def __init__(self, name, role, skill_level, **kwargs):
         self.name = name
         self.role = role
         self.skill_level = skill_level
         self.morale = 5
+        self.__dict__.update(kwargs)
 
     def improve_skill(self):
         self.skill_level += 1
@@ -213,12 +209,13 @@ class Employee:
 
 # AI Competitor with Advanced Strategies
 class AICompetitor:
-    def __init__(self, name, money, strategy="Balanced"):
+    def __init__(self, name, money, strategy="Balanced", **kwargs):
         self.name = name
         self.money = money
         self.owned_cars = {}
         self.dealerships = 1
         self.strategy = strategy
+        self.__dict__.update(kwargs)
 
     def expand_business(self):
         if self.money >= 500_000:
